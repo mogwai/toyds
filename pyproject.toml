@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toyds"
+description = "Toy datasets for training sequence models"
+version = "0.0.1"
+dependencies = [
+    "torch"
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
