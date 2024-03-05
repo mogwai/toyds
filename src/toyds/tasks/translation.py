@@ -38,16 +38,6 @@ def map_many_to_many():
 
     """
 
-
-def numerical():
-    """
-    Test whether the model can do certain sums
-    """
-
-
 def summarisation():
-
-
-
 
 

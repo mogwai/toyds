@@ -1,14 +1,10 @@
 import torch
 import random
 import torch.nn.functional as F
-from .task import Task
+from toyds.tasks.task import Task
+from toyds.utils import cat
 
-"""
-Needle in the haystack problems
-"""
-
-
-def filter_sequence(vocab_size=10, max_len=10):
+def filter_seq(vocab_size=100, max_seq_len=100, querylen=None):
     """
     Given a sequence, filter out all but a queried set of numbers  in the prompt, producing the numbers from the original sequnce in order that they appear.
 
@@ -20,8 +16,37 @@ def filter_sequence(vocab_size=10, max_len=10):
     [D, D, A, B, D, D, C, A, C, |, C, A, | A, C, A, C ]
 
     """
-    pass
+    querylen = vocab_size//10
+    # Has to be at least one thing to search for
+    minL = 5
+    length = random.randint(minL, max_seq_len//2)
 
+    vocab_size -= 1
+    query = random.sample(range(3, vocab_size),k=querylen)
+    haystack = torch.randint(3, vocab_size, (length,))
+    indices = [(haystack == elem).nonzero() for elem in query if (haystack== elem).any()]
+    if len(indices):
+        indices = torch.cat(indices)
+    result = haystack[indices].flatten()
+    haystack = cat(haystack, 2, query, 2, result, 1)
+
+    # Try again
+    if haystack.shape[-1] > max_seq_len:
+        return filter_seq(vocab_size, max_seq_len, querylen)
+    else:
+        return haystack
+
+class Filter(Task):
+
+    def generate(self):
+        return filter_seq(*self.args, **self.kwargs)
+
+    def train(self, logits, seq, lengths):
+        # Find the index of the last 2 (command token)
+        # Command to 1 is the sequence
+
+        targets = torch.stack([seq[i, lengths[i]-1] for i in range(len(lengths))])
+        return F.cross_entropy(logits, targets)
 
 
 def lookup_item(vocab_size=1000, max_seq_len=5000, occurences=1):
@@ -40,26 +65,26 @@ def lookup_item(vocab_size=1000, max_seq_len=5000, occurences=1):
     vocab_size -= 1
 
     randtoken = lambda:  random.randint(4, vocab_size)
-    lookfor = randtoken()
-    tosearch = torch.randint(4, vocab_size, (length,))
+    needle = randtoken()
+    haystack = torch.randint(4, vocab_size, (length,))
 
-    for i in (tosearch == lookfor).nonzero():
+    for i in (haystack == needle).nonzero():
         rand = randtoken()
 
-        while rand == lookfor:
+        while rand == needle:
             rand = randtoken()
 
-        tosearch[i] = rand
+        haystack[i] = rand
 
     contains = random.random() < .5
     if contains:
-        idxs = random.sample(list(range(len(tosearch))), k=occurences)
-        tosearch[idxs] = lookfor
+        idxs = random.sample(list(range(len(haystack))), k=occurences)
+        haystack[idxs] = needle
 
     # 0 pad 1 EOS 2 Command 3 True 4 False
     contains = 3 if contains else 4
-    tosearch = torch.cat((tosearch, torch.tensor([2, lookfor, 2, contains])))
-    return tosearch
+    haystack = cat(haystack, 2, needle, 2, contains)
+    return haystack
 
 
 class LookupItem(Task):
@@ -74,5 +99,4 @@ class LookupItem(Task):
         logits = torch.stack([logits[i, lengths[i]-1] for i in range(len(lengths))])
         targets = torch.stack([seq[i, lengths[i]-1] for i in range(len(lengths))])
         return F.cross_entropy(logits, targets)
-
 

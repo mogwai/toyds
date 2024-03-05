@@ -359,3 +359,15 @@ def multimap(items: list, func: callable, workers=4, desc=None) -> list:
         func, items, leave=False, desc=desc, max_workers=workers, total=len(items)
     )
     return list(filter(lambda x: x is not None, results))
+
+
+def cat(*args, dim=0, dtype=None):
+    """A better torch.cat function"""
+    args = list(args)
+
+    for i in range(len(args)):
+        if type(args[i]) is int:
+            args[i] = [args[i]]
+        if not torch.is_tensor(args[i]):
+            args[i] = torch.tensor(args[i])
+    return torch.cat(args, dim=dim)

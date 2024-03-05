@@ -14,7 +14,7 @@ from toyds import utils, download
 from toyds.config import Config, load_config
 from toyds.model import GPT as Model
 from toyds.data import ToyDataset, collate_fn
-from toyds.tasks.needle import LookupItem
+from toyds.tasks.needle import LookupItem, Filter
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
 
@@ -53,7 +53,11 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
-    ds = ToyDataset([LookupItem(vocab_size=embs, max_seq_len=config.model.max_seq_len)])
+    msl = config.model.max_seq_len)
+    ds = ToyDataset([
+        LookupItem(vocab_size=embs, max_seq_len=msl),
+        Filter(vocab_size=embs, max_seq_len=msl),
+    ])
 
     train_dl = DataLoader(
         ds,
