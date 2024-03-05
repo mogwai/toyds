@@ -20,6 +20,7 @@ def filter_sequence(vocab_size=10, max_len=10):
     [D, D, A, B, D, D, C, A, C, |, C, A, | A, C, A, C ]
 
     """
+    pass
 
 
 
@@ -36,17 +37,17 @@ def lookup_item(vocab_size=1000, max_seq_len=5000, occurences=1):
     minL = 5
     length = random.randint(minL, ML)
 
-
     vocab_size -= 1
 
-    lookfor = random.randint(5, vocab_size)
-    tosearch = torch.randint(5, vocab_size, (length,))
+    randtoken = lambda:  random.randint(4, vocab_size)
+    lookfor = randtoken()
+    tosearch = torch.randint(4, vocab_size, (length,))
 
     for i in (tosearch == lookfor).nonzero():
-        rand = random.randint(5, vocab_size)
+        rand = randtoken()
 
         while rand == lookfor:
-            rand = random.randint(5, vocab_size)
+            rand = randtoken()
 
         tosearch[i] = rand
 
@@ -63,15 +64,13 @@ def lookup_item(vocab_size=1000, max_seq_len=5000, occurences=1):
 
 class LookupItem(Task):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        self.args = args
-        self.kwargs = kwargs
-
     def generate(self):
         return lookup_item(*self.args, **self.kwargs)
 
     def train(self, logits, seq, lengths):
+        """
+        We only really need the last logits
+        """
         logits = torch.stack([logits[i, lengths[i]-1] for i in range(len(lengths))])
         targets = torch.stack([seq[i, lengths[i]-1] for i in range(len(lengths))])
         return F.cross_entropy(logits, targets)

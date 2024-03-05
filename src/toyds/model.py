@@ -87,6 +87,8 @@ class GPT(Module):
         embs = self.token_head(embs).permute(0, 2, 1)
         loss = torch.tensor(0, device=tokens.device, dtype=embs.dtype)
 
+
+        # This is the slightly complicated bit!
         for v in loss_funcs.values():
             loss += v["loss"](embs[v["items"]], tokens, lengths)
 
