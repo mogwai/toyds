@@ -29,8 +29,15 @@ def lookup_item(vocab_size=1000, max_len=5000, occurences=1):
 
     [A, ......, Z, | Z | T]
     """
+
     ML = max_len - 4
-    length = random.randint(0, ML)
+
+    # Has to be at least one thing to search for
+    minL = 5
+    length = random.randint(minL, ML)
+
+
+    vocab_size -= 1
 
     lookfor = random.randint(5, vocab_size)
     tosearch = torch.randint(5, vocab_size, (length,))
@@ -44,11 +51,13 @@ def lookup_item(vocab_size=1000, max_len=5000, occurences=1):
         tosearch[i] = rand
 
     contains = random.random() < .5
-
-    if contains:
-        idxs = random.sample(list(range(len(tosearch))), k=occurences)
-        tosearch[idxs] = lookfor
-
+    try:
+        if contains:
+            idxs = random.sample(list(range(len(tosearch))), k=occurences)
+            tosearch[idxs] = lookfor
+    except:
+        breakpoint()
+        x = 1
     # 0 pad 1 EOS 2 Command 3 True 4 False
     contains = 3 if contains else 4
     tosearch = torch.cat((tosearch, torch.tensor([2, lookfor, 2, contains])))

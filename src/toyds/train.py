@@ -55,10 +55,12 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
-    ds = ToyDataset([partial(lookup_item, vocab_size=embs, max_len=config.model.max_seq_len)])
+    lookup = partial(lookup_item, vocab_size=embs, max_len=config.model.max_seq_len)
+    ds = ToyDataset([lookup])
 
     def collate_fn(batch):
-        return {"tokens":pad_sequence(batch, batch_first=True)}
+        tokens = pad_sequence(batch, batch_first=True)
+        return {"tokens": tokens}
 
     train_dl = DataLoader(
         ds,
@@ -75,7 +77,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
     )
 
     step = 0
-    hours_seen = 0.0
 
     if train.checkpoint is not None:
         checkpoint_path = train.checkpoint
@@ -88,7 +89,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
         checkpoint = torch.load(checkpoint_path, map_location=f"cuda:{rank}")
         utils.load_what_you_can(checkpoint["model"], model)
-        hours_seen = checkpoint["hours_seen"]
 
         if train.continue_from_checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer"])
@@ -97,8 +97,8 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
         del checkpoint
         torch.cuda.empty_cache()
 
-    if not dev:
-        model = torch.compile(model)
+    # if not dev:
+    #     model = torch.compile(model)
 
     if world_size > 1:
         model = DDP(model, device_ids=[rank])
@@ -252,11 +252,6 @@ def main(
 
     if dev:
         print("Running in dev mode (smaller dataset, batch size, fewer epochs, etc.)")
-        config.train.val_every = 1
-        config.train.batch_size = 2
-        config.train.total_steps = 2
-        config.train.checkpoint_every = 1
-        config.train.grad_acc_steps = 1
         config.data.num_workers = 0
 
     if config.train.is_resuming:
