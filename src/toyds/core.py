@@ -2,15 +2,19 @@ from torch.utils.data import IterableDataset
 import random
 
 class ToyDataset(IterableDataset):
+    """
+    Produces an infinite stream of toy tasks for LLM eval
+    """
 
     def __init__(self, challenges:list[callable], probs:list[float]=None, vocab_size=512):
         # A task might need to create vocab tokens
         self.challenges = challenges
+        self.probs = probs
 
-        if probs is None:
-            probs = [1/len(challenges)]*len(challenges)
+        if self.probs is None:
+           self.probs = [1/len(challenges)]*len(challenges)
 
-        assert sum(probs) == 1
+        assert sum(self.probs) == 1
 
         self.pad_token = 0
         self.eos_token = 1
@@ -19,8 +23,10 @@ class ToyDataset(IterableDataset):
         # Determine the vocabulary size based on the problem
         self.tokens = vocab_size - 3
 
+    def gen(self):
+        while True:
+            func = random.choices(self.challenges, self.probs)[0]
+            yield func()
 
     def __iter__(self):
-        while True:
-            yield random.choices(self.challenges, self.probs)()
-
+        return self.gen()

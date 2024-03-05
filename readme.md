@@ -4,12 +4,11 @@ A collection of different synthetic sequence problems to be solved.
 
 Great for debugging ideas before going to real data.
 
-Also includes some very very small real data problems in here.
+Also includes some psuedo sythnetic real data problems in here.
 
-Supporting torch.
+# Credits
 
-## Examples
+This is where I got the idea from:
 
-## Quick Guide on Generators in Python and what they are.
-
+[Mamba Paper](https://arxiv.org/ftp/arxiv/papers/2312/2312.00752.pdf)
 

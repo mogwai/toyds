@@ -7,7 +7,9 @@ name = "toyds"
 description = "Toy datasets for training sequence models"
 version = "0.0.1"
 dependencies = [
-    "torch"
+    "torch",
+    "wandb",
+    "pydantic",
 ]
 
 [tool.setuptools]
