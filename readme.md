@@ -1,15 +1,16 @@
-# toyds
+# toyds (WIP)
 
 A collection of different synthetic sequence problems to be solved.
 
 Great for debugging ideas before going to real data.
 
-Also includes some psuedo sythnetic real data problems in here.
+Will include some psuedo sythnetic real data problems in here.
 
 # Install
 
 ```
 pip install git+https://github.com/mogwai/toyds.git
+python demo.py
 ```
 
 # Test with nanoGPT
