@@ -209,16 +209,14 @@ def to_device(obj: [nn.Module, Tensor, list, dict], targets: str | list[str]):
     """
     Takes obj and iterates through the keys putting them on the `device`
     """
-    if isinstance(obj, (float, int, str)):
-        return obj
-    elif isinstance(obj, Tensor) or isinstance(obj, nn.Module):
+    if isinstance(obj, Tensor) or isinstance(obj, nn.Module):
         return obj.to(targets)
     elif isinstance(obj, (list, tuple)):
         return [to_device(item, targets) for item in obj]
     elif isinstance(obj, dict):
         return {key: to_device(value, targets) for key, value in obj.items()}
     else:
-        raise Exception("Must be called with list, dict, Tensor or ")
+        return obj
 
 
 def hash_arguments(args, kwargs):

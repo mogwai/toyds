@@ -15,10 +15,10 @@ class LayerNorm(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, d_model: int, bias: bool, dropout: float):
+    def __init__(self, d_model: int, bias: bool, dropout: float, mlp_factor=4):
         super().__init__()
-        self.c_fc = nn.Linear(d_model, 4 * d_model, bias=bias)
-        self.c_proj = nn.Linear(4 * d_model, d_model, bias=bias)
+        self.c_fc = nn.Linear(d_model, mlp_factor * d_model, bias=bias)
+        self.c_proj = nn.Linear(mlp_factor * d_model, d_model, bias=bias)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: Tensor):
@@ -83,12 +83,13 @@ class TransformerBlock(nn.Module):
         bias: bool,
         dropout: float,
         causal: bool = True,
+        mlp_factor = 2.0,
     ):
         super().__init__()
         self.attn_norm = LayerNorm(d_model, bias=bias)
         self.attn = Attention(d_model, n_heads, bias, dropout, causal)
         self.mlp_norm = LayerNorm(d_model, bias=bias)
-        self.mlp = MLP(d_model, bias, dropout)
+        self.mlp = MLP(d_model, bias, dropout, mlp_factor)
 
     def forward(
         self,
@@ -109,6 +110,7 @@ class Decoder(nn.Module):
         n_layers: int,
         bias: bool,
         causal: bool = True,
+        mlp_factor: float = 2,
         dropout: float = 0.0,
     ):
         super().__init__()
@@ -116,7 +118,7 @@ class Decoder(nn.Module):
         self.drop = nn.Dropout(dropout)
         self.blocks = nn.ModuleList(
             [
-                TransformerBlock(d_model, n_heads, bias, dropout, causal=causal)
+                TransformerBlock(d_model, n_heads, bias, dropout, causal=causal, mlp_factor=mlp_factor)
                 for _ in range(n_layers)
             ]
         )

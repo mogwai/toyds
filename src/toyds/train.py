@@ -16,7 +16,7 @@ from toyds import utils, download
 from toyds.config import Config, load_config
 from toyds.model import GPT as Model
 from toyds.data import ToyDataset
-from toyds.tasks.needle import lookup_item
+from toyds.tasks.needle import LookupItem
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
 
@@ -55,12 +55,22 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
-    lookup = partial(lookup_item, vocab_size=embs, max_len=config.model.max_seq_len)
-    ds = ToyDataset([lookup])
+    ds = ToyDataset([LookupItem()])
 
     def collate_fn(batch):
-        tokens = pad_sequence(batch, batch_first=True)
-        return {"tokens": tokens}
+        sequences = [b[0] for b in batch]
+        loss_funcs = {}
+        for i, s in enumerate(batch):
+            task = s[1]
+            if task.name not in loss_funcs:
+                loss_funcs[task.name] = {
+                    "loss": task.train,
+                    "items": []
+                }
+            loss_funcs[task.name]["items"].append(i)
+
+        tokens = pad_sequence(sequences, batch_first=True)
+        return {"tokens": tokens, "loss_funcs": loss_funcs}
 
     train_dl = DataLoader(
         ds,

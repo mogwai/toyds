@@ -6,7 +6,7 @@ class ToyDataset(IterableDataset):
     Produces an infinite stream of toy tasks for training debugging
     """
 
-    def __init__(self, challenges:list[callable], probs:list[float]=None, vocab_size=512):
+    def __init__(self, challenges:list[callable], probs:list[float]=None):
         self.challenges = challenges
         self.probs = probs
 
@@ -15,16 +15,10 @@ class ToyDataset(IterableDataset):
 
         assert sum(self.probs) == 1
 
-        self.pad_token = 0
-        self.eos_token = 1
-        # Start sequence or used to denote commands
-        self.command_token = 2
-        self.tokens = vocab_size - 3
-
     def gen(self):
         while True:
             func = random.choices(self.challenges, self.probs)[0]
-            yield func()
+            yield func.generate(), func
 
     def __iter__(self):
         return self.gen()

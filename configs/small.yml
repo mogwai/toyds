@@ -10,4 +10,4 @@ model:
   max_seq_len: 1024
   num_embs: 1024
   dmodel: 1024
-  layers: 8
+  layers: 4

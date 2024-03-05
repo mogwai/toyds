@@ -1,5 +1,7 @@
 import torch
 import random
+import torch.nn.functional as F
+from .task import Task
 
 """
 Needle in the haystack problems
@@ -18,8 +20,6 @@ def filter_sequence(vocab_size=10, max_len=10):
     [D, D, A, B, D, D, C, A, C, |, C, A, | A, C, A, C ]
 
     """
-
-
 
 
 
@@ -51,15 +51,25 @@ def lookup_item(vocab_size=1000, max_len=5000, occurences=1):
         tosearch[i] = rand
 
     contains = random.random() < .5
-    try:
-        if contains:
-            idxs = random.sample(list(range(len(tosearch))), k=occurences)
-            tosearch[idxs] = lookfor
-    except:
-        breakpoint()
-        x = 1
+    if contains:
+        idxs = random.sample(list(range(len(tosearch))), k=occurences)
+        tosearch[idxs] = lookfor
+
     # 0 pad 1 EOS 2 Command 3 True 4 False
     contains = 3 if contains else 4
     tosearch = torch.cat((tosearch, torch.tensor([2, lookfor, 2, contains])))
     return tosearch
+
+
+class LookupItem(Task):
+
+    def __init__(self):
+        super().__init__()
+
+    def generate(self):
+        return lookup_item()
+
+    def train(self, logits, seq):
+        return F.cross_entropy(logits[-1:], seq[-1:])
+
 
