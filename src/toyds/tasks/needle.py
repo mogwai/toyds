@@ -6,10 +6,10 @@ from toyds.utils import cat
 
 def filter_seq(vocab_size=100, max_seq_len=100, querylen=None):
     """
-    Given a sequence, filter out all but a queried set of numbers  in the prompt, producing the numbers from the original sequnce in order that they appear.
+    Given a sequence, filter out all but a queried set of numbers in the prompt, 
+    producing the numbers from the original sequnce in order that they appear.
 
-    Examples:
-
+    Example:
 
     [D, D, C, A, A, A, B, C, D, |, A, |, A, A, A ]
 
@@ -25,13 +25,15 @@ def filter_seq(vocab_size=100, max_seq_len=100, querylen=None):
     query = random.sample(range(3, vocab_size),k=querylen)
     haystack = torch.randint(3, vocab_size, (length,))
     indices = [(haystack == elem).nonzero() for elem in query if (haystack== elem).any()]
+    
     if len(indices):
         indices = torch.cat(indices)
+    
     result = haystack[indices].flatten()
-    haystack = cat(haystack, 2, query, 2, result, 1)
+    haystack = cat(haystack, 2, query, 2, result, 1).long()
 
-    # Try again
     if haystack.shape[-1] > max_seq_len:
+        # Try again
         return filter_seq(vocab_size, max_seq_len, querylen)
     else:
         return haystack

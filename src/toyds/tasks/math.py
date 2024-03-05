@@ -1,6 +1,6 @@
-def addition():
+def sum():
     """
-    Turn the sequence of numbers into a sum
+    Sum the sequence of numbers
 
     + or - ?
     """
@@ -18,6 +18,3 @@ def whatsbigger():
     """
     Given two numbers, determine which one bigger
     """
-
-
-earef

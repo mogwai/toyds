@@ -6,11 +6,16 @@ Great for debugging ideas before going to real data.
 
 Also includes some psuedo sythnetic real data problems in here.
 
-
 # Install
 
 ```
 pip install git+https://github.com/mogwai/toyds.git
+```
+
+# Test with nanoGPT
+
+```
+train configs/small.yml
 ```
 
 # Credits
