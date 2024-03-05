@@ -1,11 +1,8 @@
 import torch
 from torch import nn, Tensor
-import torchaudio
-import torch.nn.functional as F
 from einops import rearrange
+import torch.nn.functional as F
 import torch
-from nanodrz.utils import make_padding_mask
-
 
 class LayerNorm(nn.Module):
     def __init__(self, d_model: int, bias: bool = False):
@@ -30,29 +27,6 @@ class MLP(nn.Module):
         x = self.c_proj(x)
         x = self.dropout(x)
         return x
-
-
-class FusedQueryAtt(nn.Module):
-
-    def __init__(
-        self,
-        dmodel: int = 1024,
-        *args,
-        **kwargs,
-    ):
-        super().__init__()
-        self.query = nn.Linear(dmodel, dmodel)
-        self.act = F.gelu
-
-    def forward(self, x, lengths):
-        B, T, _ = x.shape
-        query = self.act((x[:, None])).repeat(1, T, 1, 1)
-        padding_mask = ~make_padding_mask(lengths).to(x.device)
-        padding_mask = (padding_mask[None].T * padding_mask[None]).permute(1, 0, 2)
-        tril = torch.tril(torch.ones(B, T, T, device=x.device))
-        nseq = (tril * padding_mask)[..., None] * query
-        x = x + nseq.sum(2)
-        return
 
 
 class Attention(nn.Module):
@@ -112,7 +86,7 @@ class TransformerBlock(nn.Module):
     ):
         super().__init__()
         self.attn_norm = LayerNorm(d_model, bias=bias)
-        self.attn = FusedQueryAtt(d_model, n_heads, bias, dropout, causal)
+        self.attn = Attention(d_model, n_heads, bias, dropout, causal)
         self.mlp_norm = LayerNorm(d_model, bias=bias)
         self.mlp = MLP(d_model, bias, dropout)
 
@@ -120,9 +94,8 @@ class TransformerBlock(nn.Module):
         self,
         x: Tensor,
         mask: Tensor = None,
-        lengths: Tensor = None,
     ) -> Tensor:
-        x = x + self.attn(self.attn_norm(x), mask=mask, lengths=lengths)
+        x = x + self.attn(self.attn_norm(x), mask=mask)
         x = x + self.mlp(self.mlp_norm(x))
         return x
 
@@ -153,12 +126,11 @@ class Decoder(nn.Module):
         self,
         x: Tensor,
         mask: Tensor = None,
-        lengths: Tensor = None,
     ):
         x = self.drop(x)
 
         for block in self.blocks:
-            x = block(x, mask, lengths=lengths)
+            x = block(x, mask)
 
         return self.norm_f(x)
 
@@ -182,15 +154,3 @@ class ScaledSinusoidalEmbedding(nn.Module):
     def forward(self, pos_ids: Tensor):
         emb = self.emb[pos_ids]
         return self.weight * emb
-
-
-class WhisperConvs(nn.Module):
-    def __init__(self, dmodel: int, channels: int):
-        super().__init__()
-        self.conv1 = nn.Conv1d(channels, dmodel, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(dmodel, dmodel, kernel_size=3, stride=2, padding=1)
-
-    def forward(self, x: Tensor):
-        x = F.gelu(self.conv1(x))
-        x = F.gelu(self.conv2(x))
-        return x.permute(0, 2, 1)

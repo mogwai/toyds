@@ -7,6 +7,7 @@ name = "toyds"
 description = "Toy datasets for training sequence models"
 version = "0.0.1"
 dependencies = [
+    "einops",
     "torch",
     "numpy",
     "wandb",

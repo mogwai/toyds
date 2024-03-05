@@ -14,6 +14,7 @@ class GPT(Module):
         self.config = config
         modelcfg = config.model
         dmodel = modelcfg.dmodel
+        self.num_embs = modelcfg.num_embs
 
         self.pad_idx = 0
         self.eos_idx = 1
@@ -76,17 +77,13 @@ class GPT(Module):
         self,
         tokens: Tensor,
     ):
-        audio = audio + self.audio_pos_emb(torch.arange(audio.shape[1]))
-        target = tokens[,1:]
-        embs = self.token_emb(tokens[:-1]) + self.token_pos(
-            torch.arange(tokens.shape[1])
-        )
-
         # Fixed size for torch.compile
         max_seq_len = self.config.model.max_seq_len
-        embs = F.pad(
-            embs, (0, 0, 0, max(0, max_seq_len - embs.size(1)), 0, 0)
-        )
+        tokens  = F.pad(tokens, (0, max(0, max_seq_len - tokens.size(-1))))
+        embs = tokens[:, :-1]
+        target = tokens[:, 1:]
+        embs = self.token_emb(embs) + self.token_pos(torch.arange(embs.shape[-1]))
+
 
         embs = self.decoder(embs)
         embs = self.token_head(embs).permute(0, 2, 1)

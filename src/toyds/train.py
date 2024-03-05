@@ -1,18 +1,21 @@
 import os
 import time
 from contextlib import nullcontext
+from functools import partial
 
 import torch
 import torch.multiprocessing as mp
 from torch.distributed import destroy_process_group, init_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
 import wandb
 from toyds import utils, download
 from toyds.config import Config, load_config
 from toyds.model import GPT as Model
+from toyds.data import ToyDataset
 from toyds.tasks.needle import lookup_item
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
@@ -52,12 +55,15 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
-    ds = ToyDataset([lookup_item(vocab_size=num_embs, max_len=config.model.max_seq_len)])
+    ds = ToyDataset([partial(lookup_item, vocab_size=embs, max_len=config.model.max_seq_len)])
+
+    def collate_fn(batch):
+        return {"tokens":pad_sequence(batch, batch_first=True)}
 
     train_dl = DataLoader(
         ds,
         batch_size=B,
-        collate_fn=collate_fn(model),
+        collate_fn=collate_fn,
         num_workers=datacfg.num_workers,
         pin_memory=True,
         persistent_workers=datacfg.num_workers > 0,
@@ -91,10 +97,8 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
         del checkpoint
         torch.cuda.empty_cache()
 
-    # if not dev:
-    #     model = torch.compile(model)
-    if is_main_process and train.wandb_watch:
-        wandb.watch(model, log="all", log_freq=train.watch_every)
+    if not dev:
+        model = torch.compile(model)
 
     if world_size > 1:
         model = DDP(model, device_ids=[rank])
@@ -156,26 +160,13 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
                 param_group["lr"] = lr
 
             for micro_step in range(gradient_accumulation_steps):
-                hours = (
-                    batch["audio_lengths"].sum()
-                    / config.model.sample_rate
-                    / 60
-                    / 60
-                    / 60
-                )
-                if config.model.audio_encode == "mel":
-                    hours *= 256
-
-                hours_seen += hours
-
                 model.require_backward_grad_sync = (
                     micro_step == gradient_accumulation_steps - 1
                 )
 
                 with torch.amp.autocast(
-                    enabled=True, device_type=device_type, dtype=dtype
+                    enabled=True, device_type="cuda", dtype=dtype
                 ), torch.backends.cuda.sdp_kernel(**train.flash.model_dump()):
-                    del batch["truth"]
                     loss = model(**batch)
                     loss = loss / gradient_accumulation_steps
 
@@ -221,7 +212,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
                     "train/grad_norm": grad_norm.item(),
                     "train/lr": lr,
                     "train/batch_duration": t2 - t1,
-                    "hours_seen": hours_seen,
                     # "train/loss_slope": loss_slope,
                 }
 
@@ -234,7 +224,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
                 checkpoint = {
                     "config": config.model_dump(),
                     "step": step,
-                    "hours_seen": hours_seen,
                     "model": {
                         k: v
                         for k, v in model.state_dict().items()
@@ -258,7 +247,6 @@ def main(
     config: Config = load_config(config)
 
     config.train.torch_profile = config.train.torch_profile or profile
-    config.train.wandb_watch = config.train.wandb_watch or watch
 
     if dev:
         print("Running in dev mode (smaller dataset, batch size, fewer epochs, etc.)")
@@ -313,6 +301,5 @@ if __name__ == "__main__":
     config = args.config
     dev = args.dev
     profile = args.profile
-    watch = args.watch
     main(config, dev, profile)
 
