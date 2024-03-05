@@ -4,10 +4,9 @@ import time
 import yaml
 from pydantic import BaseModel
 
-from .constants import RUN_DIR
-from .utils import get_git_commit, get_git_branch
-from nanodrz import utils
-from nanodrz.download import dl_http_file
+from toyds.constants import RUN_DIR
+from toyds.utils import get_git_commit, get_git_branch, dictdiff, dict_to_strs
+from toyds.download import dl_http_file
 
 
 class ModelConfig(BaseModel):
@@ -108,6 +107,6 @@ def load_config(config: str | Config) -> Config:
 
 
 def diffstr(config: Config, config2: Config) -> str:
-    diff = utils.dictdiff(config.model_dump(), config2.model_dump())
-    result = utils.dict_to_strs(diff)
+    diff = dictdiff(config.model_dump(), config2.model_dump())
+    result = dict_to_strs(diff)
     return result

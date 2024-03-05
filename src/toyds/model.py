@@ -3,11 +3,8 @@ from torch.nn import Module
 from torch import Tensor, nn
 import torch.nn.functional as F
 
-from toyds.config import Config
-from toyds.modules import ScaledSinusoidalEmbedding, Decoder
-
-import torch
-
+from .config import Config
+from .modules import ScaledSinusoidalEmbedding, Decoder
 
 class GPT(Module):
 

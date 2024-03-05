@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import wandb
 from toyds import utils, download
 from toyds.config import Config, load_config
-from toyds.data import collate_fn
+from toyds.needle import
 from toyds.model import GPT as Model
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
@@ -29,9 +29,7 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
     device = torch.cuda.current_device()
 
     start_time = time.time()
-
     train = config.train
-
     datacfg = config.data
 
     assert config.run_dir is not None
@@ -55,7 +53,7 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
 
-    ds = ToyDataset
+    ds = ToyDataset([])
 
     train_dl = DataLoader(
         ds,
