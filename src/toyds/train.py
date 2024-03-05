@@ -1,21 +1,19 @@
 import os
 import time
 from contextlib import nullcontext
-from functools import partial
 
 import torch
 import torch.multiprocessing as mp
 from torch.distributed import destroy_process_group, init_process_group
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
-from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
 import wandb
 from toyds import utils, download
 from toyds.config import Config, load_config
 from toyds.model import GPT as Model
-from toyds.data import ToyDataset
+from toyds.data import ToyDataset, collate_fn
 from toyds.tasks.needle import LookupItem
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
@@ -56,22 +54,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
     ds = ToyDataset([LookupItem(vocab_size=embs, max_seq_len=config.model.max_seq_len)])
-
-    def collate_fn(batch):
-        sequences = [b[0] for b in batch]
-        lengths = torch.tensor([s.shape[-1] for s in sequences])
-        loss_funcs = {}
-        for i, s in enumerate(batch):
-            task = s[1]
-            if task.name not in loss_funcs:
-                loss_funcs[task.name] = {
-                    "loss": task.train,
-                    "items": []
-                }
-            loss_funcs[task.name]["items"].append(i)
-
-        tokens = pad_sequence(sequences, batch_first=True)
-        return {"tokens": tokens, "loss_funcs": loss_funcs, "lengths": lengths}
 
     train_dl = DataLoader(
         ds,

@@ -24,3 +24,18 @@ class ToyDataset(IterableDataset):
         return self.gen()
 
 
+def collate_fn(batch):
+    sequences = [b[0] for b in batch]
+    lengths = torch.tensor([s.shape[-1] for s in sequences])
+    loss_funcs = {}
+    for i, s in enumerate(batch):
+        task = s[1]
+        if task.name not in loss_funcs:
+            loss_funcs[task.name] = {
+                "loss": task.train,
+                "items": []
+            }
+        loss_funcs[task.name]["items"].append(i)
+
+    tokens = pad_sequence(sequences, batch_first=True)
+    return {"tokens": tokens, "loss_funcs": loss_funcs, "lengths": lengths}
