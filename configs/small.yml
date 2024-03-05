@@ -7,7 +7,7 @@ train:
     enable_flash: true
   grad_acc_steps: 1
 model:
-  max_seq_len: 1024
-  num_embs: 1024
-  dmodel: 1024
+  max_seq_len: 200
+  num_embs: 512
+  dmodel: 512
   layers: 4

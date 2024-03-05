@@ -23,14 +23,14 @@ def filter_sequence(vocab_size=10, max_len=10):
 
 
 
-def lookup_item(vocab_size=1000, max_len=5000, occurences=1):
+def lookup_item(vocab_size=1000, max_seq_len=5000, occurences=1):
     """
     With a large vocab size, determine wether and item is an a sequence
 
     [A, ......, Z, | Z | T]
     """
 
-    ML = max_len - 4
+    ML = max_seq_len - 4
 
     # Has to be at least one thing to search for
     minL = 5
@@ -63,13 +63,17 @@ def lookup_item(vocab_size=1000, max_len=5000, occurences=1):
 
 class LookupItem(Task):
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         super().__init__()
+        self.args = args
+        self.kwargs = kwargs
 
     def generate(self):
-        return lookup_item()
+        return lookup_item(*self.args, **self.kwargs)
 
-    def train(self, logits, seq):
-        return F.cross_entropy(logits[-1:], seq[-1:])
+    def train(self, logits, seq, lengths):
+        logits = torch.stack([logits[i, lengths[i]-1] for i in range(len(lengths))])
+        targets = torch.stack([seq[i, lengths[i]-1] for i in range(len(lengths))])
+        return F.cross_entropy(logits, targets)
 
 

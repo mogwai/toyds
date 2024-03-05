@@ -22,7 +22,7 @@ class GPT(Module):
 
         self.token_head = nn.Linear(dmodel, self.num_embs, bias=modelcfg.bias)
         self.init_mod_weights = []
-        self.token_pos = ScaledSinusoidalEmbedding(dmodel)
+        self.token_pos = ScaledSinusoidalEmbedding(dmodel, max_seqlen=modelcfg.max_seq_len)
 
         self.decoder = Decoder(
             d_model=dmodel,
@@ -76,20 +76,19 @@ class GPT(Module):
     def forward(
         self,
         tokens: Tensor,
-        loss_funcs: dict[callable]
+        loss_funcs: dict[callable],
+        lengths: Tensor,
     ):
-        breakpoint()
-        # Fixed size for torch.compile
         max_seq_len = self.config.model.max_seq_len
         pad_tokens  = F.pad(tokens, (0, max(0, max_seq_len - tokens.size(-1))))
         embs = pad_tokens[:, :-1]
         embs = self.token_emb(embs) + self.token_pos(torch.arange(embs.shape[-1]))
         embs = self.decoder(embs)
         embs = self.token_head(embs).permute(0, 2, 1)
-        loss = torch.tensor(0, device=tokens.device)
+        loss = torch.tensor(0, device=tokens.device, dtype=embs.dtype)
 
         for v in loss_funcs.values():
-            loss += v["loss"](embs[v["items"]], tokens)
+            loss += v["loss"](embs[v["items"]], tokens, lengths)
 
         return loss
 

@@ -55,10 +55,11 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
 
     model = Model(config).cuda(rank)
     embs = config.model.num_embs
-    ds = ToyDataset([LookupItem()])
+    ds = ToyDataset([LookupItem(vocab_size=embs, max_seq_len=config.model.max_seq_len)])
 
     def collate_fn(batch):
         sequences = [b[0] for b in batch]
+        lengths = torch.tensor([s.shape[-1] for s in sequences])
         loss_funcs = {}
         for i, s in enumerate(batch):
             task = s[1]
@@ -70,7 +71,7 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
             loss_funcs[task.name]["items"].append(i)
 
         tokens = pad_sequence(sequences, batch_first=True)
-        return {"tokens": tokens, "loss_funcs": loss_funcs}
+        return {"tokens": tokens, "loss_funcs": loss_funcs, "lengths": lengths}
 
     train_dl = DataLoader(
         ds,
