@@ -16,6 +16,7 @@ class ModelConfig(BaseModel):
     dropout: float = 0
     bias: bool = False
     num_embs: int = 512
+    max_seq_len: int = 1024
 
 
 class DataConfig(BaseModel):

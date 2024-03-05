@@ -12,8 +12,8 @@ from torch.utils.data import DataLoader
 import wandb
 from toyds import utils, download
 from toyds.config import Config, load_config
-from toyds.needle import
 from toyds.model import GPT as Model
+from toyds.tasks.needle import lookup_item
 from toyds import optim, download
 from toyds.utils import count_parameters, to_device
 
@@ -41,7 +41,6 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
         wandb.init(
             project="toyds",
             config=config.model_dump(),
-            settings=wandb.Settings(),
             name="dev" if dev else None,
         )
 
@@ -52,8 +51,8 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
     )
 
     model = Model(config).cuda(rank)
-
-    ds = ToyDataset([])
+    embs = config.model.num_embs
+    ds = ToyDataset([lookup_item(vocab_size=num_embs, max_len=config.model.max_seq_len)])
 
     train_dl = DataLoader(
         ds,

@@ -3,7 +3,7 @@ import random
 
 class ToyDataset(IterableDataset):
     """
-    Produces an infinite stream of toy tasks for LLM eval
+    Produces an infinite stream of toy tasks for training debugging
     """
 
     def __init__(self, challenges:list[callable], probs:list[float]=None, vocab_size=512):

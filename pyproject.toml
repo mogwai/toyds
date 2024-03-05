@@ -8,8 +8,10 @@ description = "Toy datasets for training sequence models"
 version = "0.0.1"
 dependencies = [
     "torch",
+    "numpy",
     "wandb",
     "pydantic",
+    "tqdm",
 ]
 
 [tool.setuptools]

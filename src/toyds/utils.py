@@ -3,7 +3,6 @@ import random
 import subprocess
 from typing import Union
 
-from librosa.filters import mel as librosa_mel_fn
 import math
 
 import numpy as np
@@ -14,13 +13,7 @@ import os
 import pickle
 from functools import wraps
 import torch.nn as nn
-import torchaudio
 from torch import Tensor
-from nanodrz.format_conversions import labels_to_annotation
-from torchaudio.transforms import Resample
-import torch.nn.functional as F
-
-from nanodrz.constants import CACHE_DIR
 
 
 def count_parameters(model: nn.Module, nongrad=False):
@@ -212,26 +205,6 @@ def sha256(b: Union[float, list, Tensor, str, bytes, np.ndarray]):
     else:
         raise Exception("Not implemented a method to handle {0}".format(type(b)))
 
-
-def play(audio: [Tensor, np.ndarray, str], sr=16000, autoplay=True):
-    from IPython.display import Audio, display
-
-    if type(audio) is str:
-        audio, sr = torchaudio.load(audio)
-
-    assert audio.numel() > 100, "play() needs a non empty audio array"
-
-    audio = audio.flatten()
-    if audio.dim() < 2:
-        audio = audio[None]
-
-    # Sum Channels
-    if audio.shape[0] > 1:
-        audio = audio.sum(dim=0)
-
-    display(Audio(audio.cpu().detach(), rate=sr, autoplay=autoplay, normalize=False))
-
-
 def to_device(obj: [nn.Module, Tensor, list, dict], targets: str | list[str]):
     """
     Takes obj and iterates through the keys putting them on the `device`
@@ -248,42 +221,9 @@ def to_device(obj: [nn.Module, Tensor, list, dict], targets: str | list[str]):
         raise Exception("Must be called with list, dict, Tensor or ")
 
 
-def visualise_annotation(labels: list):
-    from IPython.display import display
-
-    annotation = labels_to_annotation(labels)
-    display(annotation)
-
-
-RESAMPLERS = {}
-
-
-def resample(source: int, target: int, audio: Tensor):
-    """Maintains classes globally for resampling"""
-    global RESAMPLERS
-    if source == target:
-        return audio
-
-    # Check resampler
-    if source not in RESAMPLERS:
-        RESAMPLERS[source] = {}
-    if target not in RESAMPLERS[source]:
-        RESAMPLERS[source][target] = Resample(source, target)
-
-    return RESAMPLERS[source][target](audio)
-
-
-def get_file_duration(file: str):
-    """Returns the duration in seconds of the given file"""
-    info = torchaudio.info(file)
-    duration = info.num_frames / info.sample_rate
-    return duration
-
-
 def hash_arguments(args, kwargs):
     arguments = list(args) + list(kwargs.keys()) + list(kwargs.values())
     return "".join([sha256(b) for b in arguments])
-
 
 def cache(location=".cache") -> callable:
     def inner_function(f):
@@ -306,126 +246,6 @@ def cache(location=".cache") -> callable:
         return wrapper
 
     return inner_function
-
-
-def contains_non_silence(audio, sr=16000, min_duration=0.2, threshold=0.1) -> bool:
-    audio = audio < threshold
-    kernel_size = int(min_duration * sr)
-    if kernel_size % 2 == 0:
-        kernel_size += 1
-    kernel = torch.ones(1, kernel_size)
-
-    out = F.conv1d(audio, kernel, paddig=kernel_size // 2)
-    return (out == kernel_size).any()
-
-
-@cache(os.path.join(CACHE_DIR, "find_nonsilence"))
-def find_nonsilence_chunks(
-    audio_file: str,
-    silence_threshold=0.01,
-    min_silence_len=0.2,
-    min_duration=1,
-    device="cpu",
-):
-    """
-    Finds and returns non-silence chunks in the given audio.
-
-    Args:
-        audio (Tensor): The audio waveform.
-        sr (int): The sample rate of the audio.
-        silence_threshold (float, optional): The threshold below which audio is considered as silence. Defaults to 0.01.
-        min_silence_len (float, optional): The minimum duration of silence to be considered as a separate chunk. Defaults to 0.2.
-        min_chunk_len (float, optional): The minimum duration of a non-silence chunk. Defaults to 1.
-
-    Returns:
-        List[Tensor]: A list of non-silence chunks.
-        List[Tuple[int, int]]: A list of tuples representing the start and end indexes of silence segments.
-    """
-    audio, sr = torchaudio.load(audio_file)
-    audio = resample(sr, 16000, audio)
-    sr = 16000
-    chunks = find_nonsilence_chunks_vtrz(
-        audio.to(device),
-        silence_threshold,
-        min_silence_len,
-        sr,
-        device=device,
-        min_duration=min_duration,
-    )
-
-    bn = os.path.basename(audio_file)
-    ext = "." + bn.split(".")[-1]
-    bn = bn.replace(ext, "")
-    chunk_paths = []
-    os.makedirs(os.path.join(CACHE_DIR, "chunks"), exist_ok=True)
-
-    for i, c in enumerate(chunks):
-        f = bn + "_" + str(i) + ext
-        p = os.path.join(CACHE_DIR, "chunks", f)
-        chunk_paths.append(p)
-        torchaudio.save(p, c.cpu(), sr)
-
-    return chunk_paths
-
-
-@torch.jit.script
-def find_nonsilence_chunks_vtrz(
-    audio: torch.Tensor,
-    silence_threshold: float = 0.02,
-    min_silence_len: float = 0.3,
-    sr: int = 16000,
-    min_duration: int = 4,
-    device: torch.device = "cuda",
-    chunk_size: int = 60 * 16000,
-) -> list[torch.Tensor]:
-    if audio.shape[-1] < sr * min_duration:
-        return [audio]
-
-    if chunk_size is None:
-        chunk_size = sr * 60
-
-    if audio.shape[-1] > chunk_size:
-        # Pad the audio shape to be divisible by chunk_size
-        padding_length = chunk_size - (audio.shape[-1] % chunk_size)
-        audio = torch.cat(
-            (audio, torch.zeros(1, padding_length, device=device)), dim=-1
-        )
-    else:
-        chunk_size = audio.shape[-1]
-
-    silence = torch.abs(audio) < silence_threshold
-    silence = silence.float()
-
-    kernel_size = int(min_silence_len * sr)
-
-    if kernel_size % 2 == 0:
-        kernel_size += 1
-
-    kernel = torch.ones(1, 1, kernel_size, device=device)
-
-    out = []
-
-    cur_chunk = torch.zeros(1, 0, device=device)
-
-    for i, chunk in enumerate(silence.chunk(silence.shape[-1] // chunk_size, dim=-1)):
-        silence_padding = torch.ones(1, kernel_size, device=device)
-        chunk = torch.cat((silence_padding, chunk, silence_padding), dim=-1)
-        conv_output = F.conv1d(chunk[None], kernel, stride=1)
-        idxs = (conv_output == kernel_size).int().flatten()
-        switches = idxs[:-1] - idxs[1:]
-        starts = switches.eq(1).nonzero().flatten()
-        ends = switches.eq(-1).nonzero().flatten()
-
-        shift = i * chunk_size
-
-        for s, e in zip(starts, ends):
-            c = audio[:, shift + s : shift + e]
-            cur_chunk = torch.cat((cur_chunk, c), dim=-1)
-            if (cur_chunk.shape[-1] / sr) > min_duration:
-                out.append(cur_chunk)
-                cur_chunk = torch.zeros(1, 0, device=device)
-
-    return out
 
 
 def load_what_you_can(checkpoint: dict, model: nn.Module):
@@ -464,56 +284,6 @@ def load_what_you_can(checkpoint: dict, model: nn.Module):
         model_state[tuple(idxs)].copy_(param[tuple(idxs)])
 
     return model.load_state_dict(model_state_dict)
-
-
-def mel_spec(
-    audio: Tensor,
-    sr: int = 16000,
-    n_mels: int = 80,
-    n_fft: int = 1024,
-    hop_size: int = 256,
-    win_size: int = 1024,
-    fmin: int = 0,
-    fmax: int = 8000,
-) -> Tensor:
-    mel_basis: dict[int, Tensor] = {}
-    hann_window = {}
-    center = False
-
-    if fmax not in mel_basis:
-        mel = librosa_mel_fn(sr=sr, n_fft=n_fft, n_mels=n_mels, fmin=fmin, fmax=fmax)
-        mel_basis[str(fmax) + "_" + str(audio.device)] = (
-            torch.from_numpy(mel).float().to(audio.device)
-        )
-        hann_window[str(audio.device)] = torch.hann_window(
-            win_size, device=audio.device
-        )
-
-    y = torch.nn.functional.pad(
-        audio.unsqueeze(1),
-        (int((n_fft - hop_size) / 2), int((n_fft - hop_size) / 2)),
-        mode="reflect",
-    )
-
-    y = y.squeeze(1)
-
-    spec = torch.stft(
-        y,
-        n_fft,
-        hop_length=hop_size,
-        win_length=win_size,
-        window=hann_window[str(y.device)],
-        center=center,
-        pad_mode="reflect",
-        normalized=False,
-        onesided=True,
-        return_complex=False,
-    )
-    spec = torch.sqrt(spec.pow(2).sum(-1) + (1e-9))
-    spec = torch.matmul(mel_basis[str(fmax) + "_" + str(y.device)], spec)
-    # dynamic_range_compression
-    spec = torch.log(torch.clamp(spec, min=1e-5))
-    return spec
 
 
 def dictdiff(maindict: dict, changeddict: dict) -> dict:
