@@ -279,8 +279,7 @@ def main(
     else:
         train(0, world_size, config, dev)
 
-
-if __name__ == "__main__":
+def cli_main():
     import argparse
 
     parser = argparse.ArgumentParser(description="GPT Training")
@@ -300,3 +299,6 @@ if __name__ == "__main__":
     profile = args.profile
     main(config, dev, profile)
 
+
+if __name__ =="__main__":
+    cli_main()

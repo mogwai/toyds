@@ -2,11 +2,12 @@ train:
   gpus: 1
   total_steps: 1000
   max_lr: 1e-4
-  batch_size: 32
+  batch_size: 64
   flash:
     enable_flash: true
   grad_acc_steps: 1
 model:
-  num_embs: 512
-  dmodel: 512
-  layers: 6
+  max_seq_len: 1024
+  num_embs: 1024
+  dmodel: 1024
+  layers: 8
