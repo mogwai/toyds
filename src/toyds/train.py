@@ -116,6 +116,8 @@ def train(rank: int, world_size: int, config: Config, dev: bool = False):
     def wandb_log(*args, **kwargs):
         if is_main_process:
             wandb.log(*args, **kwargs)
+        if dev:
+            print(*args)
 
     get_lr = getattr(optim, train.lr_schedule)
 
