@@ -4,8 +4,8 @@ import toyds
 Filter Examples Sequences:
 	| is command token
     
-    [D, D, C, A, A, A, B, C, D, |, A, |, A, A, A]
-    [D, D, A, B, D, D, C, A, C, |, C, A, | A, C, A, C]
+    [D, D, C, A, A, A, B, C, D, |,    A, |, A, A, A]
+    [D, D, A, B, D, D, C, A, C, |, C, A, |, A, C, A, C]
 """
 vs = 10
 msl = 10
@@ -18,14 +18,14 @@ ds = toyds.ToyDataset([
 dsiter = iter(ds)
 
 
-for i in range(10):
+for i in range(2):
     print(next(dsiter)[0])
 
 """
 Outputs:
-0 padding
-1 EOS
-2 Command token
+0 is padding
+1 is EOS
+2 is Command token (|)
 
 Find all 4's
 tensor([8, 6, 3, 8, 6, 2, 4, 2, 1])
