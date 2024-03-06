@@ -20,7 +20,7 @@ dependencies = [
 package-dir = { "" = "src" }
 
 [project.scripts]
-train = "toyds.train:cli_main"
+toyds-train = "toyds.train:cli_main"
 
 [project.urls]
 Homepage = "https://github.com/mogwai/toyds"
