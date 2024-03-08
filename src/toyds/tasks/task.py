@@ -4,5 +4,10 @@ class Task:
         self.args = args
         self.kwargs = kwargs
 
-    def __call__(self):
+    def generate(self):
         raise NotImplementedError
+
+    def train(self):
+        raise NotImplementedError
+    
+    

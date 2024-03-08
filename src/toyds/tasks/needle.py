@@ -6,7 +6,7 @@ from toyds.utils import cat
 
 def filter_seq(vocab_size=100, max_seq_len=100, querylen=None):
     """
-    Given a sequence, filter out all but a queried set of numbers in the prompt, 
+    Given a sequence, filter out all but a queried set of numbers in the prompt,
     producing the numbers from the original sequnce in order that they appear.
 
     Example:
@@ -25,10 +25,10 @@ def filter_seq(vocab_size=100, max_seq_len=100, querylen=None):
     query = random.sample(range(3, vocab_size),k=querylen)
     haystack = torch.randint(3, vocab_size, (length,))
     indices = [(haystack == elem).nonzero() for elem in query if (haystack== elem).any()]
-    
+
     if len(indices):
         indices = torch.cat(indices)
-    
+
     result = haystack[indices].flatten()
     haystack = cat(haystack, 2, query, 2, result, 1).long()
 
@@ -101,4 +101,3 @@ class LookupItem(Task):
         logits = torch.stack([logits[i, lengths[i]-1] for i in range(len(lengths))])
         targets = torch.stack([seq[i, lengths[i]-1] for i in range(len(lengths))])
         return F.cross_entropy(logits, targets)
-
